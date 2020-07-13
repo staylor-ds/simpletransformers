@@ -55,6 +55,56 @@ def test_binary_classification(model_type, model_name):
     "model_type, model_name",
     [
         # ("bert", "bert-base-uncased"),
+        # ("longformer", "allenai/longformer-base-4096"),
+        # ("electra", "google/electra-small-discriminator"),
+        ("mobilebert", "google/mobilebert-uncased")
+        # ("xlnet", "xlnet-base-cased"),
+        # ("xlm", "xlm-mlm-17-1280"),
+        # ("roberta", "roberta-base"),
+        # ("distilbert", "distilbert-base-uncased"),
+        # ("albert", "albert-base-v1"),
+        # ("camembert", "camembert-base"),
+        # ("xlmroberta", "xlm-roberta-base"),
+        # ("flaubert", "flaubert-base-cased"),
+    ],
+)
+def test_binary_classification(model_type, model_name):
+    # Train and Evaluation data needs to be in a Pandas Dataframe of two columns.
+    # The first column is the text with type str, and the second column is the
+    # label with type int.
+    train_data = [
+        ["Example sentence belonging to class 1", "Example sentence belonging to class 1", 1],
+        ["Example sentence belonging to class 0", "Example sentence belonging to class 1", 0],
+    ]
+    train_df = pd.DataFrame(train_data, columns=['text_a', 'text_b', 'labels'])
+
+    eval_data = [
+        ["Example eval sentence belonging to class 1", "Example eval sentence belonging to class 1", 1],
+        ["Example eval sentence belonging to class 0", "Example eval sentence belonging to class 1", 0],
+    ]
+    eval_df = pd.DataFrame(eval_data, columns=['text_a', 'text_b', 'labels'])
+
+    # Create a ClassificationModel
+    model = ClassificationModel(
+        model_type,
+        model_name,
+        use_cuda=False,
+        args={"no_save": True, "reprocess_input_data": True, "overwrite_output_dir": True,
+              'train_batch_size': 1, 'eval_batch_size': 1,
+              'sliding_window': True, 'max_seq_length': 10},
+    )
+
+    # Train the model
+    model.train_model(train_df)
+
+    # Evaluate the model
+    result, model_outputs, wrong_predictions = model.eval_model(eval_df)
+
+
+@pytest.mark.parametrize(
+    "model_type, model_name",
+    [
+        # ("bert", "bert-base-uncased"),
         # ("xlnet", "xlnet-base-cased"),
         # ("xlm", "xlm-mlm-17-1280"),
         ("roberta", "roberta-base"),
