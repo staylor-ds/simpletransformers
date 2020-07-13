@@ -22,6 +22,7 @@ import os
 import sys
 from collections import Counter
 from io import open
+from itertools import product
 from multiprocessing import Pool, cpu_count
 
 try:
@@ -230,21 +231,47 @@ def convert_example_to_feature_sliding_window(
     if stride < 1:
         stride = int(max_seq_length * stride)
 
-    bucket_size = max_seq_length - (3 if sep_token_extra else 2)
-    token_sets = []
+    if example.text_b:
+        special_tokens_count = 4 if sep_token_extra else 3
+        bucket_size = (max_seq_length - special_tokens_count) // 2
+    else:
+        # Account for [CLS] and [SEP] with "- 2" and with "- 3" for RoBERTa.
+        special_tokens_count = 3 if sep_token_extra else 2
+        bucket_size = (max_seq_length - special_tokens_count)
+    token_sets_a = []
+    token_sets_b = []
 
     if add_prefix_space and not example.text_a.startswith(" "):
         tokens_a = tokenizer.tokenize(" " + example.text_a)
     else:
         tokens_a = tokenizer.tokenize(example.text_a)
 
-    if len(tokens_a) > bucket_size:
-        token_sets = [tokens_a[i : i + bucket_size] for i in range(0, len(tokens_a), stride)]
-    else:
-        token_sets.append(tokens_a)
-
     if example.text_b:
-        raise ValueError("Sequence pair tasks not implemented for sliding window tokenization.")
+        if add_prefix_space and not example.text_b.startswith(" "):
+            tokens_b = tokenizer.tokenize(" " + example.text_b)
+        else:
+            tokens_b = tokenizer.tokenize(example.text_b)
+
+        if len(tokens_b) < bucket_size or len(tokens_a) < bucket_size:
+            bucket_size = max_seq_length - min(len(tokens_a), len(tokens_b)) - special_tokens_count
+
+        if stride < 1:
+            stride = int(bucket_size * stride)
+        else:
+            stride = min(stride, bucket_size)
+
+        if len(tokens_b) > bucket_size:
+            token_sets_b = [tokens_b[i : i + bucket_size] for i in range(0, len(tokens_b), stride)]
+        else:
+            token_sets_b.append(tokens_b)
+    else:
+        token_sets_b.append(None)
+
+    if len(tokens_a) > bucket_size:
+        token_sets_a = [tokens_a[i : i + bucket_size] for i in range(0, len(tokens_a), stride)]
+    else:
+        token_sets_a.append(tokens_a)
+
 
     # The convention in BERT is:
     # (a) For sequence pairs:
@@ -266,9 +293,17 @@ def convert_example_to_feature_sliding_window(
     # the entire model is fine-tuned.
 
     input_features = []
-    for tokens_a in token_sets:
+    for tokens_a, tokens_b in product(token_sets_a, token_sets_b):
         tokens = tokens_a + [sep_token]
         segment_ids = [sequence_a_segment_id] * len(tokens)
+
+        if tokens_b:
+            if sep_token_extra:
+                tokens += [sep_token]
+                segment_ids += [sequence_b_segment_id]
+
+            tokens += tokens_b + [sep_token]
+            segment_ids += [sequence_b_segment_id] * (len(tokens_b) + 1)
 
         if cls_token_at_end:
             tokens = tokens + [cls_token]
