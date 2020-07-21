@@ -240,9 +240,6 @@ def convert_example_to_feature_sliding_window(
         add_prefix_space,
     ) = example_row
 
-    if stride < 1:
-        stride = int(max_seq_length * stride)
-
     if example.text_b:
         special_tokens_count = 4 if sep_token_extra else 3
         bucket_size = (max_seq_length - special_tokens_count) // 2
@@ -278,6 +275,8 @@ def convert_example_to_feature_sliding_window(
             token_sets_b.append(tokens_b)
     else:
         token_sets_b.append(None)
+        if stride < 1:
+            stride = int(max_seq_length * stride)
 
     if len(tokens_a) > bucket_size:
         token_sets_a = [tokens_a[i : i + bucket_size] for i in range(0, len(tokens_a), stride)]
