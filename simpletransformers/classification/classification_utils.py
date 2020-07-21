@@ -19,10 +19,10 @@ from __future__ import absolute_import, division, print_function
 import csv
 import json
 import os
+import random
 import sys
 from collections import Counter
 from io import open
-from itertools import product
 from multiprocessing import Pool, cpu_count
 
 try:
@@ -200,6 +200,18 @@ def convert_example_to_feature(
     return InputFeatures(input_ids=input_ids, input_mask=input_mask, segment_ids=segment_ids, label_id=example.label,)
 
 
+def random_zip(x, y):
+    x = x.copy()
+    y = y.copy()
+    random.shuffle(x)
+    random.shuffle(y)
+    for z in zip(x, y):
+        yield z
+
+
+SLIDING_PAIR_FUNC = random_zip
+
+
 def convert_example_to_feature_sliding_window(
     example_row,
     pad_token=0,
@@ -293,7 +305,7 @@ def convert_example_to_feature_sliding_window(
     # the entire model is fine-tuned.
 
     input_features = []
-    for tokens_a, tokens_b in product(token_sets_a, token_sets_b):
+    for tokens_a, tokens_b in SLIDING_PAIR_FUNC(token_sets_a, token_sets_b):
         tokens = tokens_a + [sep_token]
         segment_ids = [sequence_a_segment_id] * len(tokens)
 

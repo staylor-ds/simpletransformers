@@ -1,6 +1,9 @@
+from itertools import product
+
 import pandas as pd
 import pytest
 from simpletransformers.classification import ClassificationModel, MultiLabelClassificationModel
+from simpletransformers.classification import classification_utils
 
 
 @pytest.mark.parametrize(
@@ -95,6 +98,7 @@ def test_binary_classification(model_type, model_name):
     # Train the model
     model.train_model(train_df)
 
+    classification_utils.SLIDING_PAIR_FUNC = product
     # Evaluate the model
     result, model_outputs, wrong_predictions = model.eval_model(eval_df)
 
